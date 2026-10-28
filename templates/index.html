@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Web Scraper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Samsung One UI specific font rendering and scrollbar hiding */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- One UI Viewing Area (Top 40-50% for titles, then scrollable content) -->
+    <header class="px-6 pt-16 pb-4 shrink-0">
+        <h1 class="text-4xl font-bold tracking-tight mb-2">Book Scraper</h1>
+        <p class="text-gray-400 text-lg">Connected to Supabase</p>
+    </header>
+
+    <!-- Scrollable Results Container -->
+    <main id="books-container" class="flex-1 overflow-y-auto px-4 pb-32 no-scrollbar space-y-4">
+        <!-- Default empty state -->
+        <div id="empty-state" class="flex flex-col items-center justify-center h-full text-gray-500">
+            <svg class="w-12 h-12 mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+            </svg>
+            <p>Enter a limit below to start scraping</p>
+        </div>
+    </main>
+
+    <!-- One UI Interaction Area (Bottom Fixed Bar) -->
+    <div class="fixed bottom-0 w-full bg-[#1c1c1e]/90 backdrop-blur-xl border-t border-gray-800 rounded-t-[32px] px-6 py-6 pb-8">
+        <div class="flex items-center gap-4 max-w-md mx-auto">
+            <div class="flex-1 bg-[#2c2c2e] rounded-2xl flex items-center px-4 h-14">
+                <input 
+                    type="number" 
+                    id="book-limit" 
+                    placeholder="Num books to scrape" 
+                    min="1" 
+                    max="50"
+                    class="bg-transparent w-full text-white placeholder-gray-400 focus:outline-none text-lg"
+                >
+            </div>
+            <button 
+                id="scrape-btn"
+                onclick="triggerScrape()"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold h-14 px-8 rounded-2xl transition-colors shrink-0"
+            >
+                Scrape
+            </button>
+        </div>
+    </div>
+
+    <script>
+        async function triggerScrape() {
+            const limitInput = document.getElementById('book-limit').value;
+            const limit = limitInput ? parseInt(limitInput) : 5;
+            
+            const btn = document.getElementById('scrape-btn');
+            const container = document.getElementById('books-container');
+            
+            // UI Loading State
+            btn.innerText = 'Running...';
+            btn.disabled = true;
+            btn.classList.add('opacity-50');
+
+            try {
+                // Call the Python Flask API
+                const response = await fetch('/api/scrape', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ limit: limit })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Clear container
+                    container.innerHTML = '';
+                    
+                    // Render new One UI style cards
+                    result.data.forEach(book => {
+                        container.innerHTML += `
+                            <div class="bg-[#1c1c1e] p-6 rounded-[28px] mx-2 shadow-lg shadow-black/20">
+                                <h3 class="text-xl font-semibold mb-2 text-white leading-tight">${book.title}</h3>
+                                <div class="flex justify-between items-center mt-4">
+                                    <span class="text-blue-400 font-medium text-lg">£${book.price_gbp}</span>
+                                    <span class="text-sm px-4 py-1.5 bg-[#2c2c2e] text-gray-300 rounded-full font-medium">
+                                        ${book.availability}
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    // Scroll to top of results
+                    container.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    alert("Error: " + result.error);
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Failed to connect to the local Python server.");
+            } finally {
+                // Restore button state
+                btn.innerText = 'Scrape';
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+            }
+        }
+    </script>
+</body>
+</html>
