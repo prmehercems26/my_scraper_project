@@ -39,10 +39,131 @@
 
         .topbar {
             display: flex;
-            align-items: flex-end;
+            align-items: center;
             justify-content: space-between;
             gap: 24px;
             margin-bottom: 28px;
+        }
+
+        .settings-button {
+            flex-shrink: 0;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--surface);
+            color: var(--text);
+            padding: 11px 15px;
+            cursor: pointer;
+            font: inherit;
+            font-size: 14px;
+            font-weight: 650;
+        }
+
+        .settings-button:hover { border-color: #454b59; }
+
+        .setup-dialog {
+            width: min(460px, calc(100% - 32px));
+            max-width: none;
+            max-height: calc(100vh - 24px);
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 26px;
+            background: #14161c;
+            color: var(--text);
+            padding: 28px;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+        }
+
+        .setup-dialog::backdrop {
+            background: rgba(3, 4, 7, 0.78);
+            backdrop-filter: blur(7px);
+        }
+
+        .setup-dialog h2 {
+            margin: 0 0 8px;
+            font-size: 25px;
+            letter-spacing: -0.035em;
+        }
+
+        .setup-copy {
+            margin: 0 0 22px;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.55;
+        }
+
+        .credential-label {
+            display: block;
+            margin: 16px 0 7px;
+            color: #d7d9e0;
+            font-size: 13px;
+            font-weight: 650;
+        }
+
+        .credential-input {
+            width: 100%;
+            height: 48px;
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            outline: none;
+            background: #0e1015;
+            color: var(--text);
+            padding: 0 13px;
+            font: inherit;
+            font-size: 14px;
+        }
+
+        .credential-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(91, 134, 255, 0.12);
+        }
+
+        .field-help {
+            margin: 6px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .security-note {
+            margin: 16px 0 20px;
+            border-radius: 12px;
+            background: rgba(255, 190, 92, 0.08);
+            color: #e9c58f;
+            padding: 12px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .setup-error {
+            display: none;
+            margin: 12px 0 0;
+            color: #ff9aab;
+            font-size: 13px;
+        }
+
+        .setup-error.visible { display: block; }
+
+        .setup-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .setup-actions button {
+            min-height: 46px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--surface);
+            color: var(--text);
+            padding: 0 16px;
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+        }
+
+        .setup-actions .save-credentials {
+            border-color: transparent;
+            background: var(--accent);
         }
 
         h1 {
@@ -64,6 +185,10 @@
             height: 8px;
             margin-right: 8px;
             border-radius: 50%;
+            background: #858b98;
+        }
+
+        .status-dot.connected {
             background: var(--success);
             box-shadow: 0 0 12px rgba(100, 212, 162, 0.7);
         }
@@ -228,6 +353,17 @@
             letter-spacing: -0.025em;
         }
 
+        .book-description {
+            display: -webkit-box;
+            overflow: hidden;
+            margin: 12px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.55;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 4;
+        }
+
         .book-meta {
             display: flex;
             align-items: center;
@@ -351,7 +487,6 @@
 
         @media (max-width: 760px) {
             .page { width: min(100% - 24px, 1180px); padding-top: 36px; }
-            .topbar { align-items: flex-start; flex-direction: column; }
             .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             .metric { padding: 11px; }
             .metric-value { font-size: 16px; }
@@ -374,8 +509,9 @@
         <header class="topbar">
             <div>
                 <h1>Book Discovery</h1>
-                <p class="subtitle"><span class="status-dot"></span>Connected to Supabase</p>
+                <p class="subtitle"><span id="connection-dot" class="status-dot"></span><span id="connection-label">Connect a Supabase project to get started</span></p>
             </div>
+            <button id="settings-button" class="settings-button" type="button" onclick="openSetup(true)">Connect Supabase</button>
         </header>
 
         <section id="summary" class="summary" aria-label="Scrape summary">
@@ -398,7 +534,7 @@
                 <circle cx="11" cy="11" r="7"></circle>
                 <path d="m20 20-3.5-3.5"></path>
             </svg>
-            <input id="search" type="search" placeholder="Search the scraped books" aria-label="Search scraped books">
+            <input id="search" type="search" placeholder="Search books by name" aria-label="Search books by name">
         </div>
 
         <section id="books-container" class="books-grid" aria-live="polite">
@@ -418,14 +554,109 @@
     <div class="control-bar">
         <div class="controls">
             <input id="book-limit" class="limit-field" type="number" min="1" max="50" value="10" aria-label="Number of books">
-            <button id="scrape-btn" class="scrape-button" type="button" onclick="triggerScrape()">Scrape</button>
+            <button id="scrape-btn" class="scrape-button" type="button" onclick="triggerScrape()">Find books</button>
         </div>
     </div>
+
+    <dialog id="setup-dialog" class="setup-dialog" aria-labelledby="setup-title">
+        <form id="credentials-form">
+            <h2 id="setup-title">Connect Supabase</h2>
+            <p id="setup-copy" class="setup-copy">Enter your Supabase project and database credentials.</p>
+
+            <div id="project-fields">
+                <label class="credential-label" for="supabase-url">Project URL</label>
+                <input id="supabase-url" class="credential-input" type="url" placeholder="https://your-project.supabase.co" autocomplete="url" required>
+
+                <label class="credential-label" for="supabase-key">Publishable or anon key</label>
+                <input id="supabase-key" class="credential-input" type="password" placeholder="sb_publishable_..." autocomplete="off" required>
+            </div>
+
+            <label class="credential-label" for="database-password">Database password</label>
+            <input id="database-password" class="credential-input" type="password" placeholder="Supabase Postgres password" autocomplete="off" required>
+            <p class="field-help">Uses the existing EU-West transaction pooler on port 6543.</p>
+
+            <p class="security-note">Use a publishable key (or legacy anon key) only. Never enter a secret or service-role key. Your project URL and publishable key are saved in this browser; the database password stays in page memory only.</p>
+            <p id="setup-error" class="setup-error" role="alert"></p>
+
+            <div class="setup-actions">
+                <button id="cancel-setup" type="button" onclick="closeSetup()">Cancel</button>
+                <button class="save-credentials" type="submit">Save connection</button>
+            </div>
+        </form>
+    </dialog>
 
     <div id="toast" class="toast" role="alert"></div>
 
     <script>
         let scrapedBooks = [];
+        let supabaseCredentials = null;
+        let databasePassword = '';
+
+        function openSetup(editProject = false) {
+            const dialog = document.getElementById('setup-dialog');
+            const urlInput = document.getElementById('supabase-url');
+            const keyInput = document.getElementById('supabase-key');
+            const passwordInput = document.getElementById('database-password');
+            const error = document.getElementById('setup-error');
+            error.textContent = '';
+            error.classList.remove('visible');
+            urlInput.value = supabaseCredentials ? supabaseCredentials.url : '';
+            keyInput.value = supabaseCredentials ? supabaseCredentials.key : '';
+            passwordInput.value = databasePassword;
+            document.getElementById('project-fields').hidden = Boolean(supabaseCredentials) && !editProject;
+            document.getElementById('setup-copy').textContent = supabaseCredentials && !editProject
+                ? 'Using your saved project connection. Enter the database password to continue.'
+                : 'Enter your Supabase project URL, publishable key, and database password.';
+            document.getElementById('cancel-setup').hidden = !supabaseCredentials;
+            dialog.showModal();
+        }
+
+        function closeSetup() {
+            document.getElementById('setup-dialog').close();
+        }
+
+        function loadCredentials() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('book-discovery.supabase-credentials') || 'null');
+                if (saved && typeof saved.url === 'string' && typeof saved.key === 'string') {
+                    supabaseCredentials = saved;
+                    document.getElementById('connection-dot').classList.add('connected');
+                    document.getElementById('connection-label').textContent = 'Supabase project saved';
+                    document.getElementById('settings-button').textContent = 'Supabase settings';
+                }
+            } catch (error) {
+                console.warn('Could not read saved Supabase project settings.', error);
+            }
+            openSetup();
+        }
+
+        document.getElementById('credentials-form').addEventListener('submit', event => {
+            event.preventDefault();
+            const projectFields = document.getElementById('project-fields');
+            const url = projectFields.hidden && supabaseCredentials
+                ? supabaseCredentials.url
+                : document.getElementById('supabase-url').value.trim().replace(/\/+$/, '');
+            const key = projectFields.hidden && supabaseCredentials
+                ? supabaseCredentials.key
+                : document.getElementById('supabase-key').value.trim();
+            const password = document.getElementById('database-password').value;
+            if (!url || !key || !password) return;
+
+            try {
+                localStorage.setItem('book-discovery.supabase-credentials', JSON.stringify({ url, key }));
+            } catch (error) {
+                const message = document.getElementById('setup-error');
+                message.textContent = 'Could not save your project URL and key in this browser.';
+                message.classList.add('visible');
+                return;
+            }
+            supabaseCredentials = { url, key };
+            databasePassword = password;
+            document.getElementById('connection-dot').classList.add('connected');
+            document.getElementById('connection-label').textContent = 'Supabase project saved';
+            document.getElementById('settings-button').textContent = 'Supabase settings';
+            closeSetup();
+        });
 
         function showToast(message) {
             const toast = document.getElementById('toast');
@@ -452,7 +683,7 @@
             if (!books.length) {
                 const empty = createElement('div', 'empty-state');
                 const title = createElement('h2', '', 'No matching books');
-                const copy = createElement('p', '', 'Try another title or price search.');
+                const copy = createElement('p', '', 'Try another book name.');
                 empty.append(title, copy);
                 container.append(empty);
                 return;
@@ -470,7 +701,10 @@
                 cover.append(image);
 
                 const info = createElement('div', 'book-info');
-                info.append(createElement('h2', '', book.title));
+                info.append(
+                    createElement('h2', '', book.title),
+                    createElement('p', 'book-description', book.description || 'No description available.')
+                );
 
                 const meta = createElement('div', 'book-meta');
                 meta.append(
@@ -515,6 +749,11 @@
         }
 
         async function triggerScrape() {
+            if (!supabaseCredentials || !databasePassword) {
+                openSetup();
+                return;
+            }
+
             const limitInput = document.getElementById('book-limit');
             const limit = parseInt(limitInput.value, 10);
             if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
@@ -525,14 +764,19 @@
 
             const button = document.getElementById('scrape-btn');
             button.disabled = true;
-            button.textContent = 'Scraping…';
+            button.textContent = 'Finding books…';
             showSkeleton(limit);
 
             try {
                 const response = await fetch('/api/scrape', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ limit })
+                    body: JSON.stringify({
+                        limit,
+                        supabase_url: supabaseCredentials.url,
+                        supabase_key: supabaseCredentials.key,
+                        database_password: databasePassword
+                    })
                 });
                 const result = await response.json();
 
@@ -553,7 +797,7 @@
                 renderBooks([]);
             } finally {
                 button.disabled = false;
-                button.textContent = 'Scrape';
+                button.textContent = 'Find books';
             }
         }
 
@@ -568,6 +812,8 @@
         document.getElementById('book-limit').addEventListener('keydown', event => {
             if (event.key === 'Enter') triggerScrape();
         });
+
+        loadCredentials();
     </script>
 </body>
 </html>

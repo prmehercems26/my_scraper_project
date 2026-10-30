@@ -6,11 +6,13 @@ A Flask web app that scrapes book titles, GBP prices, and availability from [Boo
 
 - Responsive browser interface styled for mobile viewing
 - Interactive book cards with cover images and stock status
-- Loading states and in-browser filtering of scraped results
+- Short product-description snippets and in-browser book-name search
+- Loading states and animated result cards
+- In-app Supabase connection setup; credentials stay in the current browser
 - Configurable number of books to scrape
 - Scraped results displayed in the browser
 - Book data inserted into a Supabase `books` table
-- Automatic creation of the `books` table and PostgreSQL connection setup
+- Supabase `books` table integration using a publishable/anon key
 
 ## Requirements
 
@@ -42,34 +44,19 @@ A Flask web app that scrapes book titles, GBP prices, and availability from [Boo
    python -m pip install -r requirements.txt
    ```
 
-## Supabase Configuration
+## Supabase Setup
 
-Set these environment variables in PowerShell before starting the app:
+The first time you open the app, enter the project URL, publishable/anon key, and database password. The URL and key are saved in browser local storage; later visits ask only for the database password.
 
-```powershell
-$env:DATABASE_URL = "postgresql://[REDACTED]"
-$env:SUPABASE_URL = "https://your-project.supabase.co"
-$env:SUPABASE_KEY = "your-supabase-key"
-```
+The app tries to insert through the Supabase API first. Book descriptions are shown in the results but are not added to the existing database schema. If `public.books` is missing or Supabase reports that the `anon` role cannot insert, it connects through the existing EU-West transaction pooler on port `6543` to create the table or repair its insert grants and policy. The Postgres username is derived from the project URL; the password stays in page memory.
 
-- `DATABASE_URL` should be the direct PostgreSQL connection or pooler URL for your database.
-- `SUPABASE_URL` is shown in Supabase under **Project Settings > API**.
-- `SUPABASE_KEY` should be an appropriate public or server key for the operations this app performs.
-
-The app creates a table named `books` with these columns:
-
-| Column | Type |
-| --- | --- |
-| `id` | Serial primary key |
-| `title` | Text |
-| `price_gbp` | Numeric |
-| `availability` | Text |
+If you change Supabase projects or regions, update `DATABASE_POOLER_HOST` in `app.py` to that project's transaction pooler host.
 
 ## Security Warning
 
-Do not commit database passwords or Supabase API keys to source control. Remove or replace any credentials already present in `app.py`, and rotate credentials in Supabase if they may have been exposed.
+Never enter a Supabase **secret** or **service-role** key in the app. Those keys bypass Row Level Security. The app accepts only publishable keys and legacy anon JWTs. The demo insert policy allows anyone with the publishable/anon key to add rows, so use a throwaway/demo project; for production, replace it with authenticated-user policies and add Supabase Auth. Do not expose the Flask app over an untrusted network without HTTPS.
 
-For a safer setup, move the credentials to environment variables and update `app.py` to read them with `os.getenv()`.
+If a database password was ever committed to a public repository, rotate it in Supabase; deleting it from the latest source does not remove it from Git history.
 
 ## Running the App
 
@@ -81,7 +68,7 @@ python app.py
 
 Open <http://127.0.0.1:5000> in your browser.
 
-Enter a number from 1 to 50 and select **Scrape**. The app requests books from `https://books.toscrape.com/`, inserts them into Supabase, and displays the returned results.
+Connect your Supabase project, enter a number from 1 to 50, and select **Find books**. The app requests books and their description snippets from `https://books.toscrape.com/`, inserts them into Supabase, and displays the results. Search the loaded results by book name using the search field. Use **Supabase settings** to update the connection.
 
 ## API Endpoint
 
@@ -91,7 +78,10 @@ Request body:
 
 ```json
 {
-  "limit": 5
+  "limit": 5,
+  "supabase_url": "https://your-project.supabase.co",
+  "supabase_key": "sb_publishable_...",
+  "database_password": "..."
 }
 ```
 
@@ -104,7 +94,8 @@ Success response:
     {
       "title": "Book title",
       "price_gbp": 51.77,
-      "availability": "In stock"
+      "availability": "In stock",
+      "description": "A short preview of the book description..."
     }
   ]
 }
