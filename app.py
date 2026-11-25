@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urljoin
 
 from flask import Flask, request, jsonify, render_template
 import requests
@@ -35,8 +36,12 @@ def ensure_table_exists():
                 id SERIAL PRIMARY KEY,
                 title TEXT,
                 price_gbp NUMERIC,
-                availability TEXT
+                availability TEXT,
+                image_url TEXT,
+                book_url TEXT
             );
+            ALTER TABLE books ADD COLUMN IF NOT EXISTS image_url TEXT;
+            ALTER TABLE books ADD COLUMN IF NOT EXISTS book_url TEXT;
             ALTER TABLE books DISABLE ROW LEVEL SECURITY;
         """)
         conn.commit()
@@ -67,12 +72,18 @@ def run_scraper():
         return jsonify({"success": False, "error": str(e)}), 500
 
     # 2. Get the requested number of books from the frontend
-    data = request.json
-    limit = int(data.get('limit', 5))
+    data = request.get_json(silent=True) or {}
+    try:
+        limit = int(data.get('limit', 5))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "Limit must be a number"}), 400
+
+    if limit < 1 or limit > 50:
+        return jsonify({"success": False, "error": "Limit must be between 1 and 50"}), 400
 
     # 3. Scrape the website
     url = "https://books.toscrape.com/"
-    response = requests.get(url)
+    response = requests.get(url, timeout=15)
     if response.status_code != 200:
         return jsonify({"success": False, "error": "Failed to fetch page"}), 500
 
@@ -87,11 +98,16 @@ def run_scraper():
         title = book.h3.a['title']
         price = float(book.find('p', class_='price_color').text.replace('Â£', '').replace('£', ''))
         availability = book.find('p', class_='instock availability').text.strip()
+        image = book.find('div', class_='image_container').find('img')
+        relative_image_url = image['src'] if image else ''
+        relative_book_url = book.h3.a['href']
         
         scraped_data.append({
             'title': title,
             'price_gbp': price,
-            'availability': availability
+            'availability': availability,
+            'image_url': urljoin(url, relative_image_url),
+            'book_url': urljoin(url, relative_book_url)
         })
 
     # 4. Push the live data to Supabase

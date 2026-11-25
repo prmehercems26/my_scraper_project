@@ -5,6 +5,8 @@ A Flask web app that scrapes book titles, GBP prices, and availability from [Boo
 ## Features
 
 - Responsive browser interface styled for mobile viewing
+- Interactive book cards with cover images and stock status
+- Loading states and in-browser filtering of scraped results
 - Configurable number of books to scrape
 - Scraped results displayed in the browser
 - Book data inserted into a Supabase `books` table
